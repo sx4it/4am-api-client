@@ -1,0 +1,4 @@
+require '4am-api.rb'
+c = Client.new :'M2smyu4QWX2z6DjGp3UZ'
+h = c.GetHost :dev2
+h.show

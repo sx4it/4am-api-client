@@ -2,9 +2,34 @@
 
 require 'rubygems'
 require 'httparty'
+require 'json'
+
+class Host
+  attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
+  
+  def initialize(hash = {})
+    hash.each do |k, v|
+      self.instance_variable_set("@#{k}", v)
+    end
+  end
+
+  def get_json
+    dup = self.dup
+    dup.host_tpl_id = @host_tpl_id
+    dup.created_at = @created_at
+    dup.updated_at = @updated_at 
+    dup.name = @name
+    dup.ip = @ip
+    dup.id = @id
+    dup.to_json
+  end
+
+  def show
+    puts JSON.pretty_generate(self.get_json)
+  end
+end
 
 class Client
-
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164'
 
@@ -14,25 +39,42 @@ class Client
 
   def hosts
     options = { :basic_auth => @auth }
-    self.class.get('/hosts.json', options)
+    self.class.get('/hosts.json', options).parsed_response
+  end
+
+  def ShowHosts
+    options = { :basic_auth => @auth }
+    self.hosts.each do |host|
+      puts host['name']
+    end
+  end
+
+  def GetHost(name)
+    options = { :basic_auth => @auth }
+    self.hosts.each do |host|
+      if "#{host['name']}" == "#{name}"
+        return Host.new host
+      end
+    end
   end
 
 end
 
+# config = YAML.load_file('4am-credential.yaml')
+# puts "good token"
+# client = Client.new config['valid_token'] #this is my token
+# puts client.ShowHosts
 
-config = YAML.load_file('4am-credential.yaml')
-puts "good token"
-client = Client.new config['valid_token'] #this is my token
-puts client.hosts
-puts "good login"
-client = Client.new config['valid_user']['login'], config['valid_user']['password']
-puts client.hosts
-puts "bad login"
-client = Client.new config['invalid_user']['login'], config['invalid_user']['password']
-puts client.hosts
-puts "bad token"
-client = Client.new config['invalid_token']
-puts client.hosts
+
+# puts "good login"
+# client = Client.new config['valid_user']['login'], config['valid_user']['password']
+# puts client.hosts
+# puts "bad login"
+# client = Client.new config['invalid_user']['login'], config['invalid_user']['password']
+# puts client.hosts
+# puts "bad token"
+# client = Client.new config['invalid_token']
+# puts client.hosts
 
 # routes :
 #                               log GET    /log(.:format)                                     log#index
