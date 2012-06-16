@@ -2,31 +2,55 @@
 
 require 'rubygems'
 require 'httparty'
+require 'yaml'
+require 'pp'
 require 'json'
+require 'redis'
 
-class Host
-  attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
-  
-  def initialize(hash = {})
-    hash.each do |k, v|
-      self.instance_variable_set("@#{k}", v)
+class Entity
+  def create (name, &block)
+    self.class.send(:define_method, name, block)
+  end
+
+  def initialize var = {}
+    var.each do |k, v|
+      instance_variable_set("@#{k}", v)
+      create("#{k}") do
+        instance_variable_get("@#{k}")
+      end
+      create("#{k}=") do |v|
+        instance_variable_set("@#{k}", v)
+      end
     end
   end
 
-  def get_json
-    dup = self.dup
-    dup.host_tpl_id = @host_tpl_id
-    dup.created_at = @created_at
-    dup.updated_at = @updated_at 
-    dup.name = @name
-    dup.ip = @ip
-    dup.id = @id
-    dup.to_json
+  def to_s
+    ret = {}
+    ret[self.class.to_s] = Hash[*instance_variables.map do |w|
+                                  [w[1..-1], instance_variable_get(w)]
+                                end.flatten]
+    JSON.pretty_generate(ret)
   end
 
-  def show
-    puts JSON.pretty_generate(self.get_json)
+end
+ 
+class Host < Entity
+  attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
+  
+  def emit_save_request
+    request = {}
+    request['end_point'] = "/hosts/"+"#{self.id}"+".json"
+    request['body'] = {
+      :host_tpl_id => @host_tpl_id,
+      :created_at => @created_at,
+      :updated_at => @updated_at,
+      :name => @name,
+      :ip => @ip,
+      :id => @id
+    }.to_json
+    return request
   end
+  
 end
 
 class Client
@@ -42,20 +66,61 @@ class Client
     self.class.get('/hosts.json', options).parsed_response
   end
 
-  def ShowHosts
+  def cmds
     options = { :basic_auth => @auth }
+    self.class.get('/commands.json', options).parsed_response
+  end
+
+  def show_hosts
     self.hosts.each do |host|
       puts host['name']
     end
   end
 
-  def GetHost(name)
-    options = { :basic_auth => @auth }
+  def get_host(name)
     self.hosts.each do |host|
       if "#{host['name']}" == "#{name}"
         return Host.new host
       end
     end
+  end
+
+  def get_host_cmds(host)
+    options = { :basic_auth => @auth }
+    return self.class.get("/hosts/"+"#{host.id}"+"/cmd.json", options).parsed_response
+  end
+
+
+  ##
+  ## Faire plus generique pour les fonctions put/post
+  ## genre si besoin d'autres type de headers etc
+  ##
+  def post(request)
+    options = {
+      :basic_auth => @auth,
+      :body => request['body'],
+      :format => :json,
+      :headers => {
+        "Content-Type" => "application/json",
+        "content-type" => "application/json",
+        "Accept" => "application/json"
+      }
+    }
+    self.class.post(request['end_point'], options)
+  end
+
+  def put(request)
+    options = {
+      :basic_auth => @auth,
+      :body => request['body'],
+      :format => :json,
+      :headers => {
+        "Content-Type" => "application/json",
+        "content-type" => "application/json",
+        "Accept" => "application/json"
+      }
+    }
+    self.class.put(request['end_point'], options)
   end
 
 end
@@ -64,8 +129,6 @@ end
 # puts "good token"
 # client = Client.new config['valid_token'] #this is my token
 # puts client.ShowHosts
-
-
 # puts "good login"
 # client = Client.new config['valid_user']['login'], config['valid_user']['password']
 # puts client.hosts
