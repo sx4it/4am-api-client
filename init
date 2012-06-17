@@ -1,24 +1,32 @@
 require '4am-api.rb'
 c = Client.new
-h = c.get_host :dev2
-h.show
-h.clear_finished
-h.delete(109)
+# h = c.get_host :dev2
+# h.show
+# h.clear_finished
+# h.delete(109)
 # h.execute_cmd(3)
 # h.stop_cmd(107)
 # h.delete_cmd(39)
-h.refresh
-h.name = "toto"
-h.save
-toto = c.get_host :toto
-h.name = "dev2"
-h.save
-
-
-
-
-
-
+# h.refresh
+# h.name = "toto"
+# h.save
+# toto = c.get_host :toto
+# h.name = "dev2"
+# h.save
+# u = c.get_user :martial
+# u.show
+# u.email = "martial@toto.com"
+# u.save
+# u = c.get_user :martial
+# u.show
+# u.change_password :toto,:toto
+# u = c.new_user :test, :test, :test, :'test@gmail.com'
+# u = c.get_user :test
+# u.delete
+# c.show_hosts
+# c.show_users
+h = c.new_host :haha, :haha
+h.show
 
 
 #puts "after"

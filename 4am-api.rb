@@ -37,6 +37,10 @@ class Entity
     ret
   end
 
+  def show
+    puts JSON.pretty_generate(self.to_h)
+  end
+
 end
  
 #   clear_host_cmd_index DELETE /hosts/:host_id/cmd/clear(.:format)                cmd#clear
@@ -61,10 +65,6 @@ class Host < Entity
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164/hosts'
   attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
-
-  def show
-    puts JSON.pretty_generate(self.to_h)
-  end
 
   def cmds
     self.class.get("/#{self.id}/cmd.json", @options).parsed_response
@@ -116,6 +116,23 @@ end
 class User < Entity
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164/users'
+  attr_accessor :email, :id, :login
+
+  def save
+    self.class.put("/#{self.id}.json", @options.merge(:body => self.to_h))
+  end
+
+  def change_password(password, password_confirmation)
+    body = self.to_h
+    body['password'] = password
+    body['password_confirmation'] = password_confirmation
+    self.class.put("/#{self.id}.json", @options.merge(:body => body))
+  end
+
+  def delete
+    self.class.delete("/#{self.id}.json", @options)
+  end
+
 end
 
 class Client
@@ -147,9 +164,21 @@ class Client
     self.class.get('/commands.json', @options).parsed_response
   end
 
+  def show_cmds
+    self.cmds.each do |cmd|
+      puts JSON.pretty_generate(cmd)
+    end
+  end
+
+  def show_users
+    self.users.each do |user|
+      puts JSON.pretty_generate(user)
+    end
+  end
+
   def show_hosts
     self.hosts.each do |host|
-      puts host['name']
+      puts JSON.pretty_generate(host)
     end
   end
 
@@ -162,4 +191,35 @@ class Client
     raise 'host not found'
   end
 
+  def get_user(login)
+    self.users.each do |user|
+      if "#{user['login']}" == "#{login}"
+        return User.new @options, user
+      end
+    end
+    raise 'host not found'
+  end
+
+  def new_host(name, ip, host_tpl_id=nil)
+    self.class.post("/hosts.json", @options.merge(
+               :format => :json,
+               :body => { :host => {
+                   :name => name,
+                   :ip => ip,
+                   :host_tpl_id => host_tpl_id
+               }}))
+    self.get_host(name)
+  end
+
+  def new_user(login, password, password_confirmation, email=nil)
+    self.class.post("/new_user.json", @options.merge(
+               :format => :text,
+               :body => { :user => {
+                   :login => login,
+                   :password => password,
+                   :password_confirmation => password_confirmation,
+                   :email => email
+             }}))
+    self.get_user(login)
+  end
 end
