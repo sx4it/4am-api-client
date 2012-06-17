@@ -41,26 +41,15 @@ class Entity
     puts JSON.pretty_generate(self.to_h)
   end
 
+  def save
+    self.class.put("/#{self.id}.json", @options.merge(:body => self.to_h))
+  end
+
+  def delete
+    self.class.delete("/#{self.id}.json", @options)
+  end
 end
  
-#   clear_host_cmd_index DELETE /hosts/:host_id/cmd/clear(.:format)                cmd#clear
-# refresh_host_cmd_index GET    /hosts/:host_id/cmd/refresh(.:format)              cmd#refresh
-#               host_cmd POST   /hosts/:host_id/cmd/:id(.:format)                  cmd#new
-#         host_cmd_index GET    /hosts/:host_id/cmd(.:format)                      cmd#index
-#                        POST   /hosts/:host_id/cmd(.:format)                      cmd#create
-#           new_host_cmd GET    /hosts/:host_id/cmd/new(.:format)                  cmd#new
-#          edit_host_cmd GET    /hosts/:host_id/cmd/:id/edit(.:format)             cmd#edit
-#                        GET    /hosts/:host_id/cmd/:id(.:format)                  cmd#show
-#                        PUT    /hosts/:host_id/cmd/:id(.:format)                  cmd#update
-#                        DELETE /hosts/:host_id/cmd/:id(.:format)                  cmd#destroy
-
-#                  hosts GET    /hosts(.:format)                                   hosts#index
-#                        POST   /hosts(.:format)                                   hosts#create
-#               new_host GET    /hosts/new(.:format)                               hosts#new
-#              edit_host GET    /hosts/:id/edit(.:format)                          hosts#edit
-#                   host GET    /hosts/:id(.:format)                               hosts#show
-#                        PUT    /hosts/:id(.:format)                               hosts#update
-#                        DELETE /hosts/:id(.:format)                               hosts#destroy
 class Host < Entity
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164/hosts'
@@ -111,6 +100,11 @@ class Host < Entity
   def save
     self.class.put("/#{self.id}.json", @options.merge(:body => self.to_h))
   end
+
+  def delete
+    self.class.delete("/#{self.id}.json", @options)    
+  end
+
 end
 
 class User < Entity
@@ -118,21 +112,24 @@ class User < Entity
   base_uri 'http://dev2.sx4it.com:42164/users'
   attr_accessor :email, :id, :login
 
-  def save
-    self.class.put("/#{self.id}.json", @options.merge(:body => self.to_h))
-  end
-
   def change_password(password, password_confirmation)
     body = self.to_h
     body['password'] = password
     body['password_confirmation'] = password_confirmation
     self.class.put("/#{self.id}.json", @options.merge(:body => body))
   end
+end
 
-  def delete
-    self.class.delete("/#{self.id}.json", @options)
-  end
+class Cmd < Entity
+  include HTTParty
+  base_uri 'http://dev2.sx4it.com:42164/commands'
+  attr_accessor :created_at, :updated_at, :name, :id
+end
 
+class UserGroup < Entity
+  include HTTParty
+  base_uri 'http://dev2.sx4it.com:42164/user_groups'
+  attr_accessor :created_at, :updated_at, :name, :command, :id
 end
 
 class Client
@@ -162,6 +159,16 @@ class Client
 
   def cmds
     self.class.get('/commands.json', @options).parsed_response
+  end
+
+  def user_groups
+    self.class.get('/user_groups.json', @options).parsed_response
+  end
+
+  def show_user_groups
+    self.user_groups.each do |ug|
+      puts JSON.pretty_generate(ug)
+    end
   end
 
   def show_cmds
@@ -197,7 +204,34 @@ class Client
         return User.new @options, user
       end
     end
-    raise 'host not found'
+    raise 'user not found'
+  end
+
+  def get_user_group(name)
+    self.user_groups.each do |ug|
+      if "#{ug['name']}" == "#{name}"
+        return UserGroup.new @options, ug
+      end
+    end
+    raise 'user group not found'
+  end
+
+  def get_command(id)
+    self.cmds.each do |cmd|
+      if "#{cmd['id']}" == "#{id}"
+        return Cmd.new @options, cmd
+      end
+    end
+    raise 'command not found'
+  end
+
+  def get_command(name)
+    self.cmds.each do |cmd|
+      if "#{cmd['name']}" == "#{name}"
+        return Cmd.new @options, cmd
+      end
+    end
+    raise 'command not found'
   end
 
   def new_host(name, ip, host_tpl_id=nil)
@@ -211,6 +245,16 @@ class Client
     self.get_host(name)
   end
 
+  def new_command(name, command)
+    self.class.post("/commands.json", @options.merge(
+               :format => :json,
+               :body => { :command => {
+                   :name => name,
+                   :command => command
+               }}))
+    self.get_command(name)
+  end
+
   def new_user(login, password, password_confirmation, email=nil)
     self.class.post("/new_user.json", @options.merge(
                :format => :text,
@@ -222,4 +266,14 @@ class Client
              }}))
     self.get_user(login)
   end
+
+  def new_user_group(name)
+    self.class.post("/user_groups.json", @options.merge(
+               :format => :json,
+               :body => { :user_group => {
+                   :name => name
+             }}))
+    self.get_user_group(name)
+  end
+
 end

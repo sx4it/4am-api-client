@@ -25,20 +25,17 @@ c = Client.new
 # u.delete
 # c.show_hosts
 # c.show_users
-h = c.new_host :haha, :haha
-h.show
-
-
-#puts "after"
-#h.show_all_cmds
-#
-# h.delete_cmd(39)
-#h.name = "toto"
-#h.save
-#c.get_host :toto
-#h.name = "blop"
-#h.save
-#
-#h.stop_cmd(92)
-#h.execute_cmd(2)
-#h.clear_finished
+# h = c.new_host :haha, :haha
+# h = c.get_host :haha
+# h.delete
+# cmd = c.get_command(3)
+# cmd.show
+# cmd = c.new_command :'yeah', :'echo YEAAAAAAAAAHHHH !!!!'
+# cmd.show 
+# cmd = c.get_command :'yeah'
+# cmd.delete
+# ug = c.new_user_group :BOOOOOM
+# ug.show
+ug = c.get_user_group :'héhé'
+ug.show
+ug.delete
