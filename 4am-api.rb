@@ -7,6 +7,8 @@ require 'pp'
 require 'json'
 require 'redis'
 
+$api_token = ''
+
 class Entity
   def create (name, &block)
     self.class.send(:define_method, name, block)
@@ -24,33 +26,127 @@ class Entity
     end
   end
 
-  def to_s
+  def to_h
     ret = {}
     ret[self.class.to_s] = Hash[*instance_variables.map do |w|
                                   [w[1..-1], instance_variable_get(w)]
                                 end.flatten]
-    JSON.pretty_generate(ret)
   end
 
 end
  
 class Host < Entity
+  include HTTParty
+  base_uri 'http://dev2.sx4it.com:42164'
   attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
-  
-  def emit_save_request
-    request = {}
-    request['end_point'] = "/hosts/"+"#{self.id}"+".json"
-    request['body'] = {
-      :host_tpl_id => @host_tpl_id,
-      :created_at => @created_at,
-      :updated_at => @updated_at,
-      :name => @name,
-      :ip => @ip,
-      :id => @id
-    }.to_json
-    return request
+
+  def show
+    puts JSON.pretty_generate(self.to_h)
+  end
+
+#              clear_host_cmd_index GET    /hosts/:host_id/cmd/clear(.:format)                cmd#clear
+#            refresh_host_cmd_index GET    /hosts/:host_id/cmd/refresh(.:format)              cmd#refresh
+#                    host_cmd_index GET    /hosts/:host_id/cmd(.:format)                      cmd#index
+#                                   POST   /hosts/:host_id/cmd(.:format)                      cmd#create
+#                      new_host_cmd GET    /hosts/:host_id/cmd/new(.:format)                  cmd#new
+#                     edit_host_cmd GET    /hosts/:host_id/cmd/:id/edit(.:format)             cmd#edit
+#                          host_cmd GET    /hosts/:host_id/cmd/:id(.:format)                  cmd#show
+#                                   PUT    /hosts/:host_id/cmd/:id(.:format)                  cmd#update
+#                                   DELETE /hosts/:host_id/cmd/:id(.:format)                  cmd#destroy
+
+  def cmds
+    options = { :basic_auth => { :username => $api_token, :password => nil } }
+    self.class.get("/hosts/"+"#{self.id}"+"/cmd.json", options).parsed_response
+  end
+
+  def show_all_cmds
+    self.cmds.each do |c|
+      puts JSON.pretty_generate(c)
+    end
+  end
+
+  def delete_cmd(id)
+    self.cmds.each do |c|
+      if c['id'] == id
+        options = { :basic_auth => { :username => $api_token, :password => nil } }
+        self.class.delete("/hosts/"+"#{self.id}"+"/cmd/"+"#{id}"+".json", options)
+      end
+    end
+  end
+
+  def execute_cmd(id)
+    opts_get = { :basic_auth => { :username => $api_token, :password => nil } }
+    response = self.class.get("/hosts/"+"#{self.id}"+"/cmd.json", opts_get)
+    # puts response.header, response.body
+    # response.body.inspect
+    # Create the data structure of the desired command
+    cmd = {}
+    cmd['time'] = Time.now
+    cmd['status'] = "started"
+    cmd['log'] = "-"
+    cmd['type'] = "cmd-host"
+    cmd['hosts'] = [self.to_h]
+    cmd['hosts_ip'] = [@ip]
+    cmd['hosts_id'] = [@id]
+    # Get the command data to the corresponding id
+    self.class.get("/commands.json", opts_get).parsed_response.each do |c|
+      if c['id'] == id
+        cmd['command'] = c
+        cmd['script'] = c['command']
+      end
+    end
+    # Get the user data corresponding to the user launching the cmd
+    # -> TODO: find a way to retrieve the current user
+    self.class.get("/users.json", opts_get).parsed_response.each do |u|
+      if "#{u['login']}" == "martial" 
+        cmd['current_user'] = u
+      end
+    end
+    
+    # Create the post body
+    # puts JSON.pretty_generate(JSON.parse(response.body))
+    # puts response.body
+    body = JSON.parse(response.body)
+    body[body.length] = cmd
+    puts JSON.dump(body)
+
+    # body.to_json.inspect
+    # # puts JSON.pretty_generate(body)
+    opts_post = {
+      :basic_auth => { :username => $api_token, :password => nil },
+      :body => body.to_json.to_s,
+      :format => :json,
+      :headers => {
+        "Content-Type" => "application/json",
+        "content-type" => "application/json",
+        "Accept" => "application/json"
+      }
+    }
+    opts_post.inspect
+    #self.class.post("/hosts/"+"#{self.id}"+"/cmd.json", opts_post)
   end
   
+  def save
+    options = {
+      :basic_auth => { :username => $api_token, :password => nil },
+      :body => {
+        :host_tpl_id => @host_tpl_id,
+        :created_at => @created_at,
+        :updated_at => @updated_at,
+        :name => @name,
+        :ip => @ip,
+        :id => @id
+      }.to_json,
+      :format => :json,
+      :headers => {
+        "Content-Type" => "application/json",
+        "content-type" => "application/json",
+        "Accept" => "application/json"
+      }
+    }
+    options.inspect
+    # self.class.put("/hosts/"+"#{self.id}"+".json", options)
+  end
 end
 
 class Client
@@ -59,6 +155,12 @@ class Client
 
   def initialize(u, p=nil)
     @auth = {:username => u, :password => p}
+    $api_token = u
+  end
+
+  def users
+    options = { :basic_auth => @auth }    
+    self.class.get("/users.json", options).parsed_response
   end
 
   def hosts
@@ -85,43 +187,37 @@ class Client
     end
   end
 
-  def get_host_cmds(host)
-    options = { :basic_auth => @auth }
-    return self.class.get("/hosts/"+"#{host.id}"+"/cmd.json", options).parsed_response
-  end
+  # ##
+  # ## Faire plus generique pour les fonctions put/post
+  # ## genre si besoin d'autres type de headers etc
+  # ##
+  # def post(request)
+  #   options = {
+  #     :basic_auth => @auth,
+  #     :body => request['body'],
+  #     :format => :json,
+  #     :headers => {
+  #       "Content-Type" => "application/json",
+  #       "content-type" => "application/json",
+  #       "Accept" => "application/json"
+  #     }
+  #   }
+  #   self.class.post(request['end_point'], options)
+  # end
 
-
-  ##
-  ## Faire plus generique pour les fonctions put/post
-  ## genre si besoin d'autres type de headers etc
-  ##
-  def post(request)
-    options = {
-      :basic_auth => @auth,
-      :body => request['body'],
-      :format => :json,
-      :headers => {
-        "Content-Type" => "application/json",
-        "content-type" => "application/json",
-        "Accept" => "application/json"
-      }
-    }
-    self.class.post(request['end_point'], options)
-  end
-
-  def put(request)
-    options = {
-      :basic_auth => @auth,
-      :body => request['body'],
-      :format => :json,
-      :headers => {
-        "Content-Type" => "application/json",
-        "content-type" => "application/json",
-        "Accept" => "application/json"
-      }
-    }
-    self.class.put(request['end_point'], options)
-  end
+  # def put(request)
+  #   options = {
+  #     :basic_auth => @auth,
+  #     :body => request['body'],
+  #     :format => :json,
+  #     :headers => {
+  #       "Content-Type" => "application/json",
+  #       "content-type" => "application/json",
+  #       "Accept" => "application/json"
+  #     }
+  #   }
+  #   self.class.put(request['end_point'], options)
+  # end
 
 end
 
