@@ -7,14 +7,15 @@ require 'pp'
 require 'json'
 require 'redis'
 
-$api_token = ''
+$api_token = YAML.load_file(File.expand_path("~/.4am-credentials.yaml"))['token']
 
 class Entity
   def create (name, &block)
     self.class.send(:define_method, name, block)
   end
 
-  def initialize var = {}
+  def initialize options, var = {}
+    @options = options
     var.each do |k, v|
       instance_variable_set("@#{k}", v)
       create("#{k}") do
@@ -28,16 +29,18 @@ class Entity
 
   def to_h
     ret = {}
-    ret[self.class.to_s] = Hash[*instance_variables.map do |w|
+    ret[self.class.to_s.downcase] = Hash[*instance_variables.map do |w|
                                   [w[1..-1], instance_variable_get(w)]
                                 end.flatten]
+    ret[self.class.to_s.downcase].delete "options"
+    ret
   end
 
 end
  
 class Host < Entity
   include HTTParty
-  base_uri 'http://dev2.sx4it.com:42164'
+  base_uri 'http://dev2.sx4it.com:42164/hosts'
   attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
 
   def show
@@ -55,8 +58,7 @@ class Host < Entity
 #                                   DELETE /hosts/:host_id/cmd/:id(.:format)                  cmd#destroy
 
   def cmds
-    options = { :basic_auth => { :username => $api_token, :password => nil } }
-    self.class.get("/hosts/"+"#{self.id}"+"/cmd.json", options).parsed_response
+    self.class.get("/#{self.id}/cmd.json", @options).parsed_response
   end
 
   def show_all_cmds
@@ -68,84 +70,17 @@ class Host < Entity
   def delete_cmd(id)
     self.cmds.each do |c|
       if c['id'] == id
-        options = { :basic_auth => { :username => $api_token, :password => nil } }
-        self.class.delete("/hosts/"+"#{self.id}"+"/cmd/"+"#{id}"+".json", options)
+        self.class.delete("/#{self.id}/cmd/#{id}.json", @options)
       end
     end
   end
 
   def execute_cmd(id)
-    opts_get = { :basic_auth => { :username => $api_token, :password => nil } }
-    response = self.class.get("/hosts/"+"#{self.id}"+"/cmd.json", opts_get)
-    # puts response.header, response.body
-    # response.body.inspect
-    # Create the data structure of the desired command
-    cmd = {}
-    cmd['time'] = Time.now
-    cmd['status'] = "started"
-    cmd['log'] = "-"
-    cmd['type'] = "cmd-host"
-    cmd['hosts'] = [self.to_h]
-    cmd['hosts_ip'] = [@ip]
-    cmd['hosts_id'] = [@id]
-    # Get the command data to the corresponding id
-    self.class.get("/commands.json", opts_get).parsed_response.each do |c|
-      if c['id'] == id
-        cmd['command'] = c
-        cmd['script'] = c['command']
-      end
-    end
-    # Get the user data corresponding to the user launching the cmd
-    # -> TODO: find a way to retrieve the current user
-    self.class.get("/users.json", opts_get).parsed_response.each do |u|
-      if "#{u['login']}" == "martial" 
-        cmd['current_user'] = u
-      end
-    end
-    
-    # Create the post body
-    # puts JSON.pretty_generate(JSON.parse(response.body))
-    # puts response.body
-    body = JSON.parse(response.body)
-    body[body.length] = cmd
-    puts JSON.dump(body)
-
-    # body.to_json.inspect
-    # # puts JSON.pretty_generate(body)
-    opts_post = {
-      :basic_auth => { :username => $api_token, :password => nil },
-      :body => body.to_json.to_s,
-      :format => :json,
-      :headers => {
-        "Content-Type" => "application/json",
-        "content-type" => "application/json",
-        "Accept" => "application/json"
-      }
-    }
-    opts_post.inspect
-    #self.class.post("/hosts/"+"#{self.id}"+"/cmd.json", opts_post)
+    self.class.get("/#{self.id}/cmd/new.json?command_id=#{id}", @options.merge(:command_id => id))
   end
-  
+
   def save
-    options = {
-      :basic_auth => { :username => $api_token, :password => nil },
-      :body => {
-        :host_tpl_id => @host_tpl_id,
-        :created_at => @created_at,
-        :updated_at => @updated_at,
-        :name => @name,
-        :ip => @ip,
-        :id => @id
-      }.to_json,
-      :format => :json,
-      :headers => {
-        "Content-Type" => "application/json",
-        "content-type" => "application/json",
-        "Accept" => "application/json"
-      }
-    }
-    options.inspect
-    # self.class.put("/hosts/"+"#{self.id}"+".json", options)
+    self.class.put("/#{self.id}.json", @options.merge(:body => self.to_h))
   end
 end
 
@@ -153,24 +88,29 @@ class Client
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164'
 
-  def initialize(u, p=nil)
+  def initialize(u=$api_token, p=nil)
     @auth = {:username => u, :password => p}
-    $api_token = u
+    @options = {
+      :basic_auth => @auth,
+      :format => :json,
+     ## :headers => {
+     ##   "Content-Type" => "application/json",
+     ##   "content-type" => "application/json",
+     ##   "Accept" => "application/json"
+     ## }
+    }
   end
 
   def users
-    options = { :basic_auth => @auth }    
-    self.class.get("/users.json", options).parsed_response
+    self.class.get("/users.json", @options).parsed_response
   end
 
   def hosts
-    options = { :basic_auth => @auth }
-    self.class.get('/hosts.json', options).parsed_response
+    self.class.get('/hosts.json', @options).parsed_response
   end
 
   def cmds
-    options = { :basic_auth => @auth }
-    self.class.get('/commands.json', options).parsed_response
+    self.class.get('/commands.json', @options).parsed_response
   end
 
   def show_hosts
@@ -178,13 +118,13 @@ class Client
       puts host['name']
     end
   end
-
   def get_host(name)
     self.hosts.each do |host|
       if "#{host['name']}" == "#{name}"
-        return Host.new host
+        return Host.new @options, host
       end
     end
+    raise 'host not found'
   end
 
   # ##

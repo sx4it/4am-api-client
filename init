@@ -1,11 +1,19 @@
 require '4am-api.rb'
-c = Client.new :'M2smyu4QWX2z6DjGp3UZ'
+c = Client.new
 c.users
 # c.cmds
-h = c.get_host :dev2
-h.show
-# h.show_all_cmds
-h.execute_cmd(2)
+h = c.get_host :blop
+#h.show
+#puts "before"
+#h.show_all_cmds
+#h.execute_cmd(2)
+#puts "after"
+#h.show_all_cmds
+#
 # h.delete_cmd(39)
-# h.name = "toto"
-# h.save
+h.name = "toto"
+h.save
+c.get_host :toto
+h.name = "blop"
+h.save
+#
