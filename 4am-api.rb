@@ -123,13 +123,13 @@ end
 class Cmd < Entity
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164/commands'
-  attr_accessor :created_at, :updated_at, :name, :id
+  attr_accessor :created_at, :updated_at, :name, :command, :id
 end
 
 class UserGroup < Entity
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164/user_groups'
-  attr_accessor :created_at, :updated_at, :name, :command, :id
+  attr_accessor :created_at, :updated_at, :name, :id
 end
 
 class Client
