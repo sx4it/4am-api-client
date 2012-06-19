@@ -29,7 +29,8 @@ c = Client.new
 # u.delete
 # c.show_hosts
 # c.show_users
-# h = c.new_host :haha, :haha, :"4242"
+h = c.new_host :haha, :haha, :"4242"
+h.show
 # h = c.get_host :haha
 # h.delete
 # cmd = c.get_command(3)

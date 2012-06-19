@@ -33,8 +33,13 @@ class Parser < Parslet::Parser
   rule(:manip_user) { space? >> str("user-") >> word.as(:key) >> str('.') >> word.as(:method) >> object.as(:args) >> space? }
   rule(:manip_host) { space? >> str("host-") >> word.as(:key) >> str('.') >> word.as(:method) >> object.as(:args) >> space? }
   rule(:funcall) { space? >> word.as(:fname) >> space? >> params.as(:params)}
-
-  rule(:expression) { manip_user.as(:user) | manip_host.as(:host) | funcall.as(:funcall) }
+  rule(:nothing) { str('') }
+  rule(:expression) {
+    manip_user.as(:user) |
+    manip_host.as(:host) |
+    funcall.as(:funcall) |
+    nothing
+  }
   root :expression
 end
 
@@ -105,7 +110,9 @@ $user_group = {}
 $host_group = {}
 
 while line = Readline.readline('4am-shell> ', true)
-  api_call = ParseLine(Parser.new.parse(line))
+  data = Parser.new.parse(line)
+  if data == ""; next; end
+  api_call = ParseLine(data)
   puts api_call.inspect
   begin
     # Methods from 'Client' class
