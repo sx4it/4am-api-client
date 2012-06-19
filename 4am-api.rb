@@ -1,5 +1,10 @@
 #! /usr/bin/ruby
 
+##############################################################################
+##
+##              4am-api
+##
+
 require 'rubygems'
 require 'httparty'
 require 'yaml'
@@ -7,8 +12,6 @@ require 'pp'
 require 'json'
 require 'redis'
 require 'yam'
-
-$api_token = YAML.load_file(File.expand_path("~/.4am-credentials.yaml"))['token']
 
 class Entity
   def create (name, &block)
@@ -53,7 +56,7 @@ end
 class Host < Entity
   include HTTParty
   base_uri 'http://dev2.sx4it.com:42164/hosts'
-  attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id
+  attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id, :port
 
   def cmds
     self.class.get("/#{self.id}/cmd.json", @options).parsed_response
@@ -234,12 +237,13 @@ class Client
     raise 'command not found'
   end
 
-  def new_host(name, ip, host_tpl_id=nil)
+  def new_host(name, ip, port, host_tpl_id=nil)
     self.class.post("/hosts.json", @options.merge(
                :format => :json,
                :body => { :host => {
                    :name => name,
                    :ip => ip,
+                   :port => port,
                    :host_tpl_id => host_tpl_id
                }}))
     self.get_host(name)
@@ -277,3 +281,4 @@ class Client
   end
 
 end
+

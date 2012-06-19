@@ -25,7 +25,7 @@ c = Client.new
 # u.delete
 # c.show_hosts
 # c.show_users
-# h = c.new_host :haha, :haha
+# h = c.new_host :haha, :haha, :"4242"
 # h = c.get_host :haha
 # h.delete
 # cmd = c.get_command(3)
@@ -36,6 +36,6 @@ c = Client.new
 # cmd.delete
 # ug = c.new_user_group :BOOOOOM
 # ug.show
-ug = c.get_user_group :'héhé'
-ug.show
-ug.delete
+# ug = c.get_user_group :'BOOOOOM'
+# ug.show
+# ug.delete
