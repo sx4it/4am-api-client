@@ -1,5 +1,9 @@
 require '4am-api.rb'
 c = Client.new
+# u = c.get_user :martial
+# u.show
+# u.show
+# u.email = ""
 # h = c.get_host :dev2
 # h.show
 # h.clear_finished

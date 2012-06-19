@@ -13,6 +13,9 @@ require 'json'
 require 'redis'
 require 'yam'
 
+# retrieve the api token from the '.4am-credentials' file
+$api_token = YAML.load_file(File.expand_path("~/.4am-credentials.yaml"))['token']
+
 class Entity
   def create (name, &block)
     self.class.send(:define_method, name, block)
