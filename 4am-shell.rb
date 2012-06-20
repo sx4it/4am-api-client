@@ -66,7 +66,6 @@ def ParseLine(data)
     end
 
   elsif data[:user]
-    puts data.inspect
     request['type'] = "User"
     request['fname'] = data[:user][:method]
     request['key'] = data[:user][:key]
@@ -110,20 +109,25 @@ $user_group = {}
 $host_group = {}
 
 while line = Readline.readline('4am-shell> ', true)
-  data = Parser.new.parse(line)
+  begin
+    data = Parser.new.parse(line)
+  rescue
+    puts "Syntax error."
+    next
+  end
   if data == ""; next; end
   api_call = ParseLine(data)
-  puts api_call.inspect
+  puts "Request: #{api_call.inspect}"
   begin
     # Methods from 'Client' class
     if api_call['type'] == "Client"
       ret = $client.method(api_call['fname']).call(*api_call['params'])
       if ret.instance_of? Host
         $host["#{api_call['params'][0]}"] = ret
-        puts ret.inspect
+        # puts ret.inspect
       elsif ret.instance_of? User
         $user["#{api_call['params'][0]}"] = ret
-        puts ret.inspect        
+        # puts ret.inspect        
       end
     # Methods from 'Host' class
     elsif api_call['type'] == "Host"
@@ -134,12 +138,18 @@ while line = Readline.readline('4am-shell> ', true)
     end
   # Handle errors here in a detailed way
   rescue NameError => e
-    puts "Unknown api method '#{api_call['fname']}'."
+    puts "Error: Unknown api method '#{api_call['fname']}'."
+    puts "Status: Fail."
   rescue TypeError => e
-    puts e.message
+    puts "Error: #{e.message}"
+    puts "Status: Fail."
   rescue ArgumentError => e
-    puts e.message
+    puts "Error: #{e.message}"
+    puts "Status: Fail."
   rescue RuntimeError => e
-    puts e.message
+    puts "Error: #{e.message}"
+    puts "Status: Fail."
+  else
+    puts "Status: Success."
   end
 end
