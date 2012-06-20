@@ -144,7 +144,7 @@ while line = Readline.readline('4am-shell> ', true)
     puts "Error: #{e.message}"
     puts "Status: Fail."
   rescue ArgumentError => e
-    puts "Error: #{e.message}"
+    puts "Error: #{e.message} for '#{api_call['fname']}'."
     puts "Status: Fail."
   rescue RuntimeError => e
     puts "Error: #{e.message}"
