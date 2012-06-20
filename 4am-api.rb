@@ -15,6 +15,10 @@ require 'yam'
 
 # retrieve the api token from the '.4am-credentials' file
 $api_token = YAML.load_file(File.expand_path("~/.4am-credentials.yaml"))['token']
+# retrieve the server_ip from the '.4am-credentials' file
+$server_ip = YAML.load_file(File.expand_path("~/.4am-credentials.yaml"))['ip']
+
+puts "Server => '#{$server_ip}'"
 
 class Entity
   def create (name, &block)
@@ -58,7 +62,7 @@ end
  
 class Host < Entity
   include HTTParty
-  base_uri 'http://dev2.sx4it.com:42164/hosts'
+  base_uri "#{$server_ip}/hosts"
   attr_accessor :host_tpl_id, :created_at, :updated_at, :name, :ip, :id, :port
 
   def cmds
@@ -115,7 +119,7 @@ end
 
 class User < Entity
   include HTTParty
-  base_uri 'http://dev2.sx4it.com:42164/users'
+  base_uri "#{$server_ip}/users"
   attr_accessor :email, :id, :login
 
   def change_password(password, password_confirmation)
@@ -128,19 +132,19 @@ end
 
 class Cmd < Entity
   include HTTParty
-  base_uri 'http://dev2.sx4it.com:42164/commands'
+  base_uri '#{$server_ip}/commands'
   attr_accessor :created_at, :updated_at, :name, :command, :id
 end
 
 class UserGroup < Entity
   include HTTParty
-  base_uri 'http://dev2.sx4it.com:42164/user_groups'
+  base_uri "#{$server_ip}/user_groups"
   attr_accessor :created_at, :updated_at, :name, :id
 end
 
 class Client
   include HTTParty
-  base_uri 'http://dev2.sx4it.com:42164'
+  base_uri "#{$server_ip}"
 
   def initialize(u=$api_token, p=nil)
     @auth = {:username => u, :password => p}
@@ -284,4 +288,3 @@ class Client
   end
 
 end
-
