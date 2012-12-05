@@ -1,4 +1,4 @@
-#! /usr/bin/ruby
+#! /usr/bin/env ruby
 
 ##############################################################################
 ##
@@ -10,8 +10,6 @@ require 'httparty'
 require 'yaml'
 require 'pp'
 require 'json'
-require 'redis'
-require 'yam'
 
 # retrieve the api token from the '.4am-credentials' file
 $api_token = YAML.load_file(File.expand_path("~/.4am-credentials.yaml"))['token']

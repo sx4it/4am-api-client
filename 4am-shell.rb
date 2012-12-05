@@ -1,4 +1,4 @@
-#! /usr/bin/ruby
+#! /usr/bin/env ruby
 # -*- coding: utf-8 -*-
 
 ##############################################################################
@@ -11,7 +11,7 @@ require 'readline'
 require 'parslet'
 require 'pp'
 require 'json'
-require '4am-api.rb'
+require './4am-api.rb'
 
 class Parser < Parslet::Parser
   rule(:word) { match['[:alnum:]|_'].repeat(1) }
